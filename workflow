@@ -11,6 +11,7 @@ Check connections with TCPView
 enable Sysmon for deeper/long-term logging
 
 Windows Persistence Paths/Locations
+
 HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
 HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
 HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce
@@ -34,6 +35,7 @@ C:\Windows\System32\magnify.exe
 HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
 
 Linux Persistence Paths/Locations
+
 /etc/crontab
 /etc/cron.d/
 /etc/cron.hourly/
@@ -71,7 +73,8 @@ Linux Persistence Paths/Locations
 /etc/passwd
 /etc/shadow
 
-Order of Volatility (from RFC 3227 – collect in this order!)
+Order of Volatility ()
+
 Registers, CPU cache
 Routing table, ARP cache, process table, kernel stats, memory (RAM)
 Temporary file systems (e.g. RAM disks, /tmp in some cases)
@@ -82,6 +85,7 @@ Archival media (backups, tapes – least volatile)
 Always collect most volatile first to avoid losing evidence.
 
 Windows Persistence & Hunting Commands
+
 File & Directory Searches
 dir /R → Recursive directory listing
 dir /a /s searchterm* → Search for files/folders (including hidden) recursively
@@ -91,6 +95,7 @@ echo "hidden data" > normalfile.txt:HiddenInfo.txt
 Get-Content reminder.txt -Stream secret.info
 
 Registry & Boot Config
+
 Get-Item → View specific registry key + properties
 reg query HKLM\... → Query registry
 Boot Configuration Data (BCD):
@@ -101,6 +106,7 @@ bcdedit /deletevalue {current} valuename → Remove value
 MBR boot signature check (on Linux): sudo xxd -l 512 -g 1 /dev/sda
 
 Services & Processes
+
 Get-CimInstance -ClassName Win32_Service | Select DisplayName → List services
 Get-Service name | Format-List * → Full service details
 sc query / sc queryex type= service state= all → All services (running/stopped)
@@ -113,6 +119,7 @@ Get-NetTCPConnection | Select LocalPort, RemoteAddress, State, OwningProcess
 Get-Process -Id <PID>
 
 Auto-Start / Run Keys (Persistence at Logon)
+
 HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
 HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
 HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce
@@ -120,6 +127,7 @@ Per-user: HKU<SID>\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
 Services (registry-backed): HKLM\SYSTEM\CurrentControlSet\Services
 
 PowerShell Profiles (Persistence via $PROFILE)
+
 $PROFILE → Current user's profile script path
 Common profiles:
 AllUsersAllHosts
@@ -129,6 +137,7 @@ CurrentUserAllHost
 Always check profiles — they can run scripts on load.
 
 Other Windows Artifacts
+
 Prefetch: C:\Windows\Prefetch — First-run evidence
 RecentDocs: HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs
 Jump Lists & AppData\Roaming → Frequent/recent apps & files
@@ -137,6 +146,7 @@ Key IDs: 4103 (verbose cmd), 4104 (script block), 4105/4106 (engine start/stop)
 Auditing: auditpol /get /category:*
 
 Linux Persistence & Hunting Commands
+
 Boot & Init
 GRUB: /boot/grub/grub.cfg, /boot/grub/x86_64-efi/normal.mod
 Init: /etc/inittab, /etc/rc#.d/ (runlevel scripts)
@@ -152,10 +162,12 @@ netstat -tulpn → Listening ports + PID/program
 netstat -tulpn | grep -E ':(80|443)' → Suspicious web servers
 
 Logs
+
 journalctl -e → Recent entries
 journalctl -u ssh.service → Filter by unit
 journalctl -b → Current boot
 journalctl --since "2 days ago"
+
 General Tools (Sysinternals & Others – Windows)
 AutoRuns → Best for boot/startup persistence (registry + files)
 Process Monitor → PPID & behavior tracking
@@ -167,6 +179,7 @@ Handle → Open handles (files, keys, etc.)
 ListDLLs → listdlls.exe <process>
 Sigcheck → sigcheck -m <exe> (signature + version)
 Strings → Extract text from binaries
+
 Memory Forensics Methodology (Quick Checklist)
 Identify rogue processes: pslist vs psscan (hidden/misspelled)
 Analyze DLLs & handles: dlllist, dlldump
@@ -175,27 +188,32 @@ Code injection: malfind
 Dump suspicious: procdump, memdump, filescan, svcscan
 Rootkit hunt: psscan, devicetree
 Active Directory / User Hunting (PowerShell)
+
 Expired but enabled accounts (last names, comma-separated):
 (Get-ADUser -Filter {Enabled -eq $true} -Properties AccountExpirationDate | Where-Object {$_.AccountExpirationDate -lt (Get-Date) -and $_.AccountExpirationDate -ne $null} | Sort-Object Surname | Select -Expand Surname) -join ','
 Find by email: Get-ADUser -Filter {Mail -eq 'user@domain.com'} -Properties Name,Mail
 Password never expires: Search-ADAccount -PasswordNeverExpires | Where Enabled
 Reversible encryption: Get-ADUser -Filter 'userAccountControl -band 128'
+
 filter ad accounts based on description powershell
 Get-ADUser -Properties Description -Filter 'Description -like "*"' | Select Name, SamAccountName, Description
+
 find two accounts with password not expire
 Get-ADUser -Filter 'PasswordNeverExpires -eq $true -and Enabled -eq $true -and Name -ne "andy.dwyer"' -Properties PasswordNeverExpires | Select-Object Name, DistinguishedName
 one account with reversiblie encryption enable
 Get-ADUser -Filter 'DoesNotRequirePreAuth -eq $true' -Properties DoesNotRequirePreAuth | Select-Object Name, DistinguishedName
+
 # Alternatively, to check specifically for reversible encryption set via policy (requires checking userAccountControl flags):
-Get-ADUser -Filter 'UserAccountControl -band 128' -Properties UserAccountControl | Select-Object Name, DistinguishedName
-> Get-LocalUser | Where-Object { $_.Name -like "tiff*" }
+Get-ADUser -Filter 'UserAccountControl -band 128' -Properties UserAccountControl | Select-Object Name, DistinguishedName > Get-LocalUser | Where-Object { $_.Name -like "tiff*" }
 Windows – Top Persistence Hunting Commands (PowerShell preferred)
 AutoRuns is king → Download Sysinternals Autoruns → run as admin → hide Microsoft / Windows entries → look for anything odd (unsigned, unusual path, user-writable locations).
 Run / RunOnce keys (logon persistence – very common)PowerShellGet-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run", "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run", "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | fl *
 Scheduled Tasks (high privilege, stealthy)PowerShellGet-ScheduledTask | Where-Object {$_.TaskPath -notlike "\Microsoft\Windows\*"} | Select TaskName, TaskPath, State, Author, Description, Actions | fl
+
 # Or raw XML dump (shows hidden / deleted tasks sometimes)
 Get-ChildItem -Path "C:\Windows\System32\Tasks" -Recurse | ForEach { [xml](Get-Content $_.FullName) } | Select -ExpandProperty Task | Select Actions, Principals, Triggers
 Services (kernel/user-mode persistence)PowerShellGet-CimInstance Win32_Service | Where StartName -notlike "LocalSystem" -and StartName -notlike "NT AUTHORITY\*" | Select Name, DisplayName, PathName, StartName, StartMode | Sort PathName
+
 # Suspicious path hunting
 Get-WmiObject Win32_Service | ? {$_.PathName -like "*%*" -or $_.PathName -like "*powershell*" -or $_.PathName -like "*cmd*"} | Select Name, PathName
 WMI Event Subscriptions (very stealthy, no file on disk sometimes)PowerShellGet-WmiObject -Namespace root\subscription -Class __EventFilter   | Select Name, Query
@@ -205,16 +223,19 @@ Startup Folders + UserInit / AppInit_DLLsPowerShellGet-ChildItem "C:\ProgramData
 Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name Userinit, Shell
 Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" -Name AppInit_DLLs -ErrorAction SilentlyContinue
 Network + process correlation (catch C2 / backdoors)PowerShellGet-NetTCPConnection -State Established,Listen | Select LocalAddress, LocalPort, RemoteAddress, RemotePort, OwningProcess | Join-Object -Right (Get-Process) -On OwningProcess -Property Id,ProcessName,Path
+
 # Or classic
 netstat -ano | findstr "ESTABLISHED LISTENING"
 PowerShell profiles (stealth logon script)PowerShell$PROFILE | fl *
 Get-Content $PROFILE -ErrorAction SilentlyContinue
+
 # All profiles
 Get-ChildItem "$env:ProgramFiles\WindowsPowerShell\Modules", "$env:USERPROFILE\Documents\WindowsPowerShell" -Recurse -Include profile.ps1 -ErrorAction SilentlyContinue
 Quick one-liner suspicious process huntPowerShellGet-Process | Where Path -notlike "*\Windows\*" -and Path -notlike "*\Program Files*" | Select Name, Id, Path, Company, Description | Sort Path
 Linux – Top Persistence Hunting Commands
 Systemd everywhere (most modern distros)Bashsystemctl list-unit-files --type=service | grep enabled
 systemctl list-units    --type=service --state=running
+
 # Suspicious custom units
 find /etc/systemd /usr/lib/systemd -type f -name "*.service" -o -name "*.timer" 2>/dev/null | xargs grep -Ei "ExecStart|ExecStop|WorkingDirectory|User|Group"
 systemctl list-timers --all

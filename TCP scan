@@ -1,0 +1,14 @@
+#!/bin/bash
+echo "Enter network address (first 3 octets): "
+read net
+echo "Enter starting host range ( ): "
+read start
+echo "Enter ending host range ( ): "
+read end
+echo "Enter ports ( ): "
+read ports
+for ((i=$start; i<=$end; i++))
+do
+    nc -nvzw1 $net.$i $ports 2>&1 | grep -E 'succ|open' &
+done
+wait
